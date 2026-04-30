@@ -215,6 +215,7 @@ model Property {
   name          String
   description   String         @db.Text
   location      String
+  fullAddress   String         @default("")
   city          String
   state         String
   country       String         @default("India")
@@ -231,6 +232,7 @@ model Property {
   maxGuests     Int            @default(2)
   images        String[]
   tags          String[]
+  isExclusive   Boolean        @default(false)
   amenities     String[]
   rating        Float          @default(0)
   reviewCount   Int            @default(0)

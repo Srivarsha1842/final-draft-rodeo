@@ -8,9 +8,11 @@ export const getAllProperties = async (filters: {
   minPrice?: number;
   maxPrice?: number;
   minGuests?: number;
+  rating?: number;
   checkIn?: string;
   checkOut?: string;
   amenities?: string[];
+  tag?: string;
   page?: number;
   limit?: number;
   sort?: string;
@@ -21,7 +23,9 @@ export const getAllProperties = async (filters: {
     minPrice,
     maxPrice,
     minGuests,
+    rating,
     amenities,
+    tag,
     page = 1,
     limit = 20,
     sort = 'rating',
@@ -46,7 +50,9 @@ export const getAllProperties = async (filters: {
     if (maxPrice !== undefined) where.pricePerNight = { ...where.pricePerNight as object, lte: maxPrice };
   }
   if (minGuests) where.maxGuests = { gte: minGuests };
+  if (rating) where.rating = { gte: rating };
   if (amenities && amenities.length > 0) where.amenities = { hasEvery: amenities };
+  if (tag) where.tags = { has: tag };
 
   const orderBy: Prisma.PropertyOrderByWithRelationInput =
     sort === 'price_asc'
@@ -72,6 +78,55 @@ export const getAllProperties = async (filters: {
   ]);
 
   return { properties, total, page, limit, pages: Math.ceil(total / limit) };
+};
+
+const activeWhere: Prisma.PropertyWhereInput = {
+  status: 'ACTIVE',
+  verified: true,
+};
+
+export const getPropertyLocations = async () => {
+  const rows = await prisma.property.findMany({
+    where: activeWhere,
+    select: { location: true, city: true, state: true },
+    orderBy: { location: 'asc' },
+  });
+
+  return Array.from(
+    new Set(
+      rows
+        .flatMap((p) => [p.location, p.city, p.state])
+        .map((value) => value?.trim())
+        .filter((value): value is string => Boolean(value))
+    )
+  ).sort((a, b) => a.localeCompare(b));
+};
+
+export const getPropertyTags = async () => {
+  const rows = await prisma.property.findMany({
+    where: activeWhere,
+    select: { tags: true },
+  });
+
+  return Array.from(new Set(rows.flatMap((p) => p.tags))).sort((a, b) => a.localeCompare(b));
+};
+
+export const getExclusiveProperties = async (limit = 12) => {
+  return prisma.property.findMany({
+    where: { ...activeWhere, isExclusive: true },
+    orderBy: [{ rating: 'desc' }, { createdAt: 'desc' }],
+    take: limit,
+    include: { host: { select: { name: true, avatar: true, joinedAt: true } } },
+  });
+};
+
+export const getPropertiesByTag = async (tag: string, limit = 12) => {
+  return prisma.property.findMany({
+    where: { ...activeWhere, tags: { has: tag } },
+    orderBy: [{ rating: 'desc' }, { createdAt: 'desc' }],
+    take: limit,
+    include: { host: { select: { name: true, avatar: true, joinedAt: true } } },
+  });
 };
 
 export const getPropertyById = async (id: string) => {
