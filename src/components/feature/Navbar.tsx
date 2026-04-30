@@ -4,22 +4,13 @@ import { loadCMSData } from '@/pages/admin/cmsStore';
 
 const navLinks = [
   {
-    label: 'Luxury Stays',
-    href: '/search?type=luxury',
-    icon: 'ri-vip-crown-line',
-    accent: 'text-amber-600',
-    pillBg: 'bg-amber-50 border-amber-200 text-amber-700',
-    pillBgActive: 'bg-amber-600 text-white border-amber-600',
-    dot: 'bg-amber-500',
-  },
-  {
-    label: 'Affordable Stays',
-    href: '/search?type=affordable',
-    icon: 'ri-price-tag-3-line',
-    accent: 'text-emerald-600',
-    pillBg: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-    pillBgActive: 'bg-emerald-600 text-white border-emerald-600',
-    dot: 'bg-emerald-500',
+    label: 'Resort Stays',
+    href: '/search?type=resort',
+    icon: 'ri-hotel-line',
+    accent: 'text-sky-600',
+    pillBg: 'bg-sky-50 border-sky-200 text-sky-700',
+    pillBgActive: 'bg-sky-600 text-white border-sky-600',
+    dot: 'bg-sky-500',
   },
   {
     label: 'Day Outing',
@@ -29,6 +20,24 @@ const navLinks = [
     pillBg: 'bg-orange-50 border-orange-200 text-orange-700',
     pillBgActive: 'bg-orange-500 text-white border-orange-500',
     dot: 'bg-orange-500',
+  },
+  {
+    label: 'Corporate Outing',
+    href: '/search?tag=Corporate%20Getaways',
+    icon: 'ri-briefcase-line',
+    accent: 'text-emerald-600',
+    pillBg: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+    pillBgActive: 'bg-emerald-600 text-white border-emerald-600',
+    dot: 'bg-emerald-500',
+  },
+  {
+    label: 'Private Villas',
+    href: '/search?tag=Private%20Stays',
+    icon: 'ri-home-heart-line',
+    accent: 'text-rose-600',
+    pillBg: 'bg-rose-50 border-rose-200 text-rose-700',
+    pillBgActive: 'bg-rose-600 text-white border-rose-600',
+    dot: 'bg-rose-500',
   },
 ];
 
@@ -97,17 +106,6 @@ export default function Navbar() {
           {/* Desktop right actions */}
           <div className="hidden md:flex items-center gap-2">
             <Link
-              to="/resort-owner"
-              className={`flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-full transition-colors whitespace-nowrap ${
-                isTransparent
-                  ? 'text-white/90 hover:text-white hover:bg-white/10 border border-white/20'
-                  : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100 border border-stone-200'
-              }`}
-            >
-              <i className="ri-building-4-line" />
-              Resort Owner
-            </Link>
-            <Link
               to="/dashboard"
               className={`flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-full transition-colors whitespace-nowrap ${
                 isTransparent
@@ -143,7 +141,7 @@ export default function Navbar() {
       {menuOpen && (
         <div className="md:hidden bg-white border-t border-stone-100 px-4 py-5 flex flex-col gap-3">
           {/* Nav links as colored blocks */}
-          <div className="grid grid-cols-3 gap-2 mb-1">
+          <div className="grid grid-cols-2 gap-2 mb-1">
             {navLinks.map((link) => (
               <Link
                 key={link.label}
@@ -158,14 +156,6 @@ export default function Navbar() {
           </div>
 
           <div className="border-t border-stone-100 pt-3 flex flex-col gap-2">
-            <Link
-              to="/resort-owner"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl border border-stone-200 text-stone-700 text-sm font-medium"
-              onClick={() => setMenuOpen(false)}
-            >
-              <i className="ri-building-4-line text-stone-500" />
-              Resort Owner
-            </Link>
             <Link
               to="/dashboard"
               className="flex items-center gap-3 px-4 py-3 rounded-xl border border-stone-200 text-stone-700 text-sm font-medium"

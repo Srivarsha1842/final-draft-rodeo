@@ -1,10 +1,18 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { properties } from '@/mocks/properties';
 import PropertyCard from '@/components/base/PropertyCard';
+import { fetchExclusiveProperties } from '@/services/propertiesApi';
+import { Property } from '@/types/property';
 
 export default function TrendingSection() {
   const navigate = useNavigate();
-  const trending = properties.slice(0, 4);
+  const [trending, setTrending] = useState<Property[]>([]);
+
+  useEffect(() => {
+    fetchExclusiveProperties(4)
+      .then(setTrending)
+      .catch(() => setTrending([]));
+  }, []);
 
   return (
     <section className="py-16 md:py-24" style={{ background: '#FAF8F5' }}>
@@ -13,9 +21,9 @@ export default function TrendingSection() {
           <div>
             <p className="text-stone-400 text-xs uppercase tracking-widest font-semibold mb-2">Popular Right Now</p>
             <h2 className="text-3xl md:text-4xl font-bold text-stone-900" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Trending Near You
+              Triprodeo Exclusives
             </h2>
-            <p className="text-stone-500 text-sm mt-1">Based on recent searches &amp; bookings</p>
+            <p className="text-stone-500 text-sm mt-1">Exclusive stays curated by Triprodeo</p>
           </div>
           <button
             onClick={() => navigate('/search')}

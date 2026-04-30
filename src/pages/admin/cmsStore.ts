@@ -546,6 +546,8 @@ export function syncHostPropertyToCMS(patch: {
   addOns?: import('./types').CMSAddOn[];
   dayPackage?: import('./types').CMSDayPackage;
   housePolicies?: string[];
+  tags?: string[];
+  isExclusive?: boolean;
 }): void {
   const data = loadCMSData();
   const idx = data.properties.findIndex((p) => p.id === patch.id);
@@ -553,5 +555,7 @@ export function syncHostPropertyToCMS(patch: {
   if (patch.addOns !== undefined) data.properties[idx].addOns = patch.addOns;
   if (patch.dayPackage !== undefined) data.properties[idx].dayPackage = patch.dayPackage;
   if (patch.housePolicies !== undefined) data.properties[idx].housePolicies = patch.housePolicies;
+  if (patch.tags !== undefined) data.properties[idx].tags = patch.tags;
+  if (patch.isExclusive !== undefined) data.properties[idx].isExclusive = patch.isExclusive;
   saveCMSData(data);
 }

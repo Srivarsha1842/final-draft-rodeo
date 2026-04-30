@@ -13,7 +13,7 @@ export interface DayOutingEnquiry {
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   occasion?: string;
   submittedAt: string;
-  hostName: string;
+  hostName?: string;
   hostPhone?: string;
   notes?: string;
 }

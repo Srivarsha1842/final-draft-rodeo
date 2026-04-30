@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/feature/Navbar';
 import Footer from '@/components/feature/Footer';
@@ -8,16 +8,22 @@ import {
   suggestionPrompts,
   quickReplies,
 } from '@/mocks/aiPlanner';
-import { loadCMSData } from '@/pages/admin/cmsStore';
 import { runPlannerTurn, QueryState } from './ragEngine';
+import { fetchProperties } from '@/services/propertiesApi';
+import { Property } from '@/types/property';
 
 export default function AIPlannerPage() {
   const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Live corpus from the CMS — retrieval grounds every answer in this data.
-  const corpus = useMemo(() => loadCMSData().properties, []);
+  const [corpus, setCorpus] = useState<Property[]>([]);
+
+  useEffect(() => {
+    fetchProperties({ limit: 100 })
+      .then((data) => setCorpus(data.properties))
+      .catch(() => setCorpus([]));
+  }, []);
 
   const [messages, setMessages] = useState<ChatMessage[]>([initialGreeting]);
   const [inputText, setInputText] = useState('');

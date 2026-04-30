@@ -1,5 +1,6 @@
 import Navbar from '@/components/feature/Navbar';
 import Footer from '@/components/feature/Footer';
+import FloatingActions from '@/components/feature/FloatingActions';
 import HeroSection from './components/HeroSection';
 import OffersSection from './components/OffersSection';
 import CollectionsSection from './components/CollectionsSection';
@@ -11,8 +12,8 @@ import ExperiencesSection from './components/ExperiencesSection';
 import HowItWorks from './components/HowItWorks';
 import WhyTriprodeo from './components/WhyTriprodeo';
 import ReviewsSection from './components/ReviewsSection';
-import LoyaltySection from './components/LoyaltySection';
 import NewsletterSection from './components/NewsletterSection';
+import PressReleasesSection from './components/PressReleasesSection';
 
 export default function HomePage() {
   return (
@@ -34,10 +35,10 @@ export default function HomePage() {
       {/* Why Triprodeo – above reviews */}
       <WhyTriprodeo />
       <ReviewsSection />
-      <LoyaltySection />
+      <PressReleasesSection />
       <NewsletterSection />
+      <FloatingActions />
       <Footer />
     </div>
   );
 }
-

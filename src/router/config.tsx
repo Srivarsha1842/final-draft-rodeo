@@ -14,6 +14,8 @@ import AdminPage from '@/pages/admin/page';
 import HostPortalPage from '@/pages/host-portal/page';
 import LoginPage from '@/pages/login/page';
 import DayOutingPage from '@/pages/day-outing/page';
+import TagsPage from '@/pages/tags/page';
+import DestinationsPage from '@/pages/destinations/page';
 import LegalPage from '@/pages/legal/page';
 import NotFound from '@/pages/NotFound';
 
@@ -35,7 +37,8 @@ const routes: RouteObject[] = [
   { path: '/host-portal', element: <HostPortalPage /> },
   { path: '/login', element: <LoginPage /> },
   { path: '/day-outing', element: <DayOutingPage /> },
-  { path: '/destinations', element: <SearchPage /> },
+  { path: '/tags', element: <TagsPage /> },
+  { path: '/destinations', element: <DestinationsPage /> },
   { path: '/legal/:slug', element: <LegalPage /> },
   { path: '*', element: <NotFound /> },
 ];

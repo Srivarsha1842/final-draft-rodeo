@@ -1,12 +1,12 @@
 // Lightweight in-browser RAG engine for the AI Trip Planner.
-// - Corpus: live CMS properties (loaded from loadCMSData()).
+// - Corpus: live API properties.
 // - Retrieval: intent parsing + structured filters (city, budget, guests)
 //   combined with lexical scoring over property text fields.
 // - Generation: template responses that paraphrase the captured slots and
 //   ground in the retrieved property data (truly RAG — no external API).
 
-import { CMSProperty } from '@/pages/admin/types';
 import { ChatMessage } from '@/mocks/aiPlanner';
+import { Property } from '@/types/property';
 
 // ── Intent / slot schema ────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ const VIBE_KEYWORDS: Record<string, string[]> = {
 // ── Corpus helpers ──────────────────────────────────────────────────────────
 
 // Build a list of known cities/states from the live corpus for matching.
-function extractPlaces(corpus: CMSProperty[]): { cities: string[]; states: string[] } {
+function extractPlaces(corpus: Property[]): { cities: string[]; states: string[] } {
   const cities = new Set<string>();
   const states = new Set<string>();
   for (const p of corpus) {
@@ -154,7 +154,7 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function extractIntent(text: string, corpus: CMSProperty[]): QueryState {
+export function extractIntent(text: string, corpus: Property[]): QueryState {
   const t = text.toLowerCase().trim();
   const places = extractPlaces(corpus);
   const { city, state } = extractPlace(text, places);
@@ -212,7 +212,7 @@ export function applyRefinements(state: QueryState, raw: string): QueryState {
 
 // ── Retrieval ───────────────────────────────────────────────────────────────
 
-function propertyBlob(p: CMSProperty): string {
+function propertyBlob(p: Property): string {
   return [
     p.name, p.city, p.state, p.location, p.type,
     ...(p.tags ?? []),
@@ -241,8 +241,8 @@ function tokenize(text: string): string[] {
 export function retrieveProperties(
   state: QueryState,
   raw: string,
-  corpus: CMSProperty[],
-): CMSProperty[] {
+  corpus: Property[],
+): Property[] {
   if (corpus.length === 0) return [];
   const tokens = tokenize(raw);
   const placeQuery = (state.city ?? state.state ?? '').toLowerCase();
@@ -342,7 +342,7 @@ function pickOpener(state: QueryState): string {
   return openers[Math.floor(Math.random() * openers.length)];
 }
 
-function toCardProperty(p: CMSProperty) {
+function toCardProperty(p: Property) {
   return {
     id: p.id,
     name: p.name,
@@ -355,9 +355,9 @@ function toCardProperty(p: CMSProperty) {
 }
 
 // Build a day-by-day itinerary grounded in the top retrieved property.
-function buildItinerary(state: QueryState, top: CMSProperty): ChatMessage {
+function buildItinerary(state: QueryState, top: Property): ChatMessage {
   const days = Math.min(Math.max(state.days ?? 3, 2), 7);
-  const activities = top.dayPackage?.activities?.length ? top.dayPackage.activities : [];
+  const activities: string[] = [];
   const amenities = top.amenities ?? [];
   const tags = top.tags ?? [];
   const nearby = [
@@ -403,7 +403,7 @@ function buildItinerary(state: QueryState, top: CMSProperty): ChatMessage {
   };
 }
 
-function buildPriceBreakdown(state: QueryState, top: CMSProperty): ChatMessage {
+function buildPriceBreakdown(state: QueryState, top: Property): ChatMessage {
   const nights = Math.max(1, (state.days ?? 3) - 1);
   const stayMin = Math.round(top.pricePerNight * nights * 0.95);
   const stayMax = Math.round(top.pricePerNight * nights * 1.2);
@@ -450,7 +450,7 @@ export interface PlannerResult {
 export function runPlannerTurn(
   rawInput: string,
   prevState: QueryState | undefined,
-  corpus: CMSProperty[],
+  corpus: Property[],
 ): PlannerResult {
   const fresh = extractIntent(rawInput, corpus);
   let state = mergeState(prevState ?? EMPTY_STATE, fresh);

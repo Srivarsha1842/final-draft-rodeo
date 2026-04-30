@@ -1,15 +1,49 @@
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loadCMSData, defaultTrendingDestinations } from '@/pages/admin/cmsStore';
+import { fetchProperties } from '@/services/propertiesApi';
+import { Property } from '@/types/property';
 
 export default function TrendingLocations() {
   const navigate = useNavigate();
+  const [trendingLocations, setTrendingLocations] = useState<Array<{
+    id: string;
+    name: string;
+    tagline: string;
+    properties: number;
+    startingPrice: number;
+    badge: string;
+    badgeColor: string;
+    image: string;
+    tags: string[];
+  }>>([]);
 
-  const trendingLocations = useMemo(() => {
-    const cms = loadCMSData();
-    return (cms.trendingDestinations && cms.trendingDestinations.length > 0)
-      ? cms.trendingDestinations
-      : defaultTrendingDestinations;
+  useEffect(() => {
+    fetchProperties({ limit: 100 })
+      .then(({ properties }) => {
+        const grouped = properties.reduce<Record<string, Property[]>>((acc, property) => {
+          const key = property.city || property.state || property.location;
+          acc[key] = [...(acc[key] ?? []), property];
+          return acc;
+        }, {});
+        setTrendingLocations(
+          Object.entries(grouped).map(([name, items], index) => ({
+            id: name,
+            name,
+            tagline: `Explore ${name} stays`,
+            properties: items.length,
+            startingPrice: Math.min(...items.map((p) => p.pricePerNight)),
+            badge: index === 0 ? 'Trending' : 'Popular',
+            badgeColor: 'bg-white/20 text-white',
+            image: items[0]?.images[0] ?? 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800&h=1000&fit=crop',
+            tags: Array.from(new Set(items.flatMap((p) => p.tags))).slice(0, 3),
+          })).slice(0, 6)
+        );
+      })
+      .catch(() => setTrendingLocations([]));
+    const id = window.setInterval(() => {
+      setTrendingLocations((items) => (items.length > 1 ? [...items.slice(1), items[0]] : items));
+    }, 3000);
+    return () => window.clearInterval(id);
   }, []);
 
   return (

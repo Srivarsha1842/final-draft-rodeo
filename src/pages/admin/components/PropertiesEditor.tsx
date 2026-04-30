@@ -8,6 +8,7 @@ interface Props {
 }
 
 type EditorTab = 'basic' | 'photos' | 'amenities' | 'rooms' | 'policies' | 'addons' | 'host' | 'reviews' | 'daypackage';
+const curatedTags = ['Corporate Getaways', 'School Trips', 'Private Stays', 'Pet Friendly', 'Beach Front'];
 
 const AMENITY_PRESETS: { group: string; items: string[] }[] = [
   { group: 'Outdoor & Recreation', items: ['Infinity Pool', 'Private Pool', 'Private Beach', 'Beach Access', 'Rooftop Deck', 'Garden', 'BBQ', 'Bonfire', 'Yoga Deck', 'Tennis Court'] },
@@ -463,6 +464,29 @@ export default function PropertiesEditor({ data, onSave }: Props) {
                   <label className="block text-xs text-stone-500 mb-1.5">Tags (comma-separated)</label>
                   <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} className="w-full px-3 py-2.5 border border-stone-200 rounded-lg text-sm outline-none focus:border-stone-400" placeholder="Beachfront, Infinity Pool, Ocean View" />
                 </div>
+                <div>
+                  <label className="block text-xs text-stone-500 mb-2">Curated Tags</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {curatedTags.map((tag) => (
+                      <label key={tag} className="flex items-center gap-2 text-xs text-stone-600 border border-stone-200 rounded-lg px-3 py-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tagsInput.split(',').map((t) => t.trim()).includes(tag)}
+                          onChange={(e) => {
+                            const current = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
+                            const next = e.target.checked ? Array.from(new Set([...current, tag])) : current.filter((t) => t !== tag);
+                            setTagsInput(next.join(', '));
+                          }}
+                        />
+                        {tag}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
+                  <input type="checkbox" checked={editing.isExclusive ?? false} onChange={(e) => setEditing({ ...editing, isExclusive: e.target.checked })} />
+                  Triprodeo Exclusive
+                </label>
                 <div>
                   <label className="block text-xs text-stone-500 mb-1.5">Description</label>
                   <textarea value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} className="w-full px-3 py-2.5 border border-stone-200 rounded-lg text-sm outline-none focus:border-stone-400 resize-none" rows={5} maxLength={1000} placeholder="Write a detailed description..." />

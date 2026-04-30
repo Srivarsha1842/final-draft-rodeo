@@ -1,13 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { properties } from '@/mocks/properties';
 import PropertyCard from '@/components/base/PropertyCard';
+import { fetchProperties } from '@/services/propertiesApi';
+import { Property } from '@/types/property';
 
 const filters = ['All', 'Villas', 'Resorts', 'Boutique'];
 
 export default function FeaturedProperties() {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState('All');
+  const [properties, setProperties] = useState<Property[]>([]);
+
+  useEffect(() => {
+    fetchProperties({ limit: 9, sort: 'rating' })
+      .then((data) => setProperties(data.properties))
+      .catch(() => setProperties([]));
+  }, []);
 
   const filtered = properties.filter((p) => {
     if (activeFilter === 'All') return true;

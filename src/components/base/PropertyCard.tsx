@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Property } from '@/mocks/properties';
+import { Property } from '@/types/property';
 
 interface PropertyCardProps {
   property: Property;

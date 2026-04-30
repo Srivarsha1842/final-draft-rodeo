@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loadCMSData } from '@/pages/admin/cmsStore';
-
-const destinations = ['Goa', 'Manali', 'Udaipur', 'Coorg', 'Andaman', 'Kerala', 'Jaisalmer', 'Ooty', 'Shimla'];
+import { fetchPropertyLocations } from '@/services/propertiesApi';
 
 export default function HeroSection() {
   const navigate = useNavigate();
@@ -10,6 +9,7 @@ export default function HeroSection() {
   const [guests, setGuests] = useState('2 Guests');
   const [budget, setBudget] = useState('Any Budget');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [destinations, setDestinations] = useState<string[]>([]);
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [showScrollHint, setShowScrollHint] = useState(true);
@@ -24,6 +24,12 @@ export default function HeroSection() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  useEffect(() => {
+    fetchPropertyLocations()
+      .then(setDestinations)
+      .catch(() => setDestinations([]));
+  }, []);
+
   const handleScrollHintClick = () => {
     setShowScrollHint(false);
     window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
@@ -36,7 +42,10 @@ export default function HeroSection() {
   const filtered = destinations.filter((d) => d.toLowerCase().includes(location.toLowerCase()) && location.length > 0);
 
   const handleSearch = () => {
-    const params = new URLSearchParams({ location, guests, budget });
+    const params = new URLSearchParams();
+    if (location) params.set('location', location);
+    if (guests) params.set('guests', guests);
+    if (budget) params.set('budget', budget);
     navigate(`/search?${params}`);
   };
 
@@ -55,7 +64,7 @@ export default function HeroSection() {
       {/* Content */}
       <div className="relative z-10 w-full flex flex-col items-center px-4 pt-20">
         {/* Tag */}
-        <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-6">
+        <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 mb-6">
           <i className="ri-ai-generate text-amber-300 text-sm" />
           <span className="text-white/90 text-xs font-medium">{hero.badgeText}</span>
         </div>

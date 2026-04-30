@@ -53,6 +53,7 @@ export interface CMSProperty {
   id: string;
   name: string;
   location: string;
+  fullAddress?: string;
   city: string;
   state: string;
   pricePerNight: number;
@@ -61,6 +62,7 @@ export interface CMSProperty {
   reviewCount: number;
   images: string[];          // general property photos
   tags: string[];
+  isExclusive?: boolean;
   type: string;
   verified: boolean;
   superhost: boolean;
@@ -88,7 +90,7 @@ export interface CMSProperty {
     superhost: boolean;
   };
   reviews: CMSPropertyReview[];
-  dayPackage: CMSDayPackage;
+  dayPackage?: CMSDayPackage;
 }
 
 export interface CMSExperience {
@@ -249,6 +251,7 @@ export interface HostProperty {
   hostId: string;
   name: string;
   location: string;
+  fullAddress?: string;
   city: string;
   state: string;
   pricePerNight: number;
@@ -257,6 +260,7 @@ export interface HostProperty {
   reviewCount: number;
   images: string[];
   tags: string[];
+  isExclusive?: boolean;
   type: string;
   verified: boolean;
   bedrooms: number;
@@ -267,6 +271,7 @@ export interface HostProperty {
   createdAt: string;
   housePolicies?: string[];
   dayPackage?: CMSDayPackage;
+  addOns?: CMSAddOn[];
 }
 
 export interface HostBooking {

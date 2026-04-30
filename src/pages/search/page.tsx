@@ -2,11 +2,11 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Navbar from '@/components/feature/Navbar';
 import Footer from '@/components/feature/Footer';
-import { properties as mockProperties } from '@/mocks/properties';
 import PropertyCard from '@/components/base/PropertyCard';
-import { loadCMSData } from '@/pages/admin/cmsStore';
+import { fetchProperties } from '@/services/propertiesApi';
+import { Property } from '@/types/property';
 
-const sortOptions = ['Recommended', 'Price: Low to High', 'Price: High to Low', 'Top Rated', 'Distance'];
+const sortOptions = ['Price: Low to High', 'Price: High to Low', 'Top Rated', 'Distance'];
 const amenityOptions = ['Pool', 'WiFi', 'Parking', 'AC', 'Spa', 'Beach Access', 'Chef on Request', 'Fireplace', 'Gym', 'Jacuzzi'];
 
 const LUXURY_THRESHOLD = 15000;
@@ -20,6 +20,8 @@ export default function SearchPage() {
   const urlType = searchParams.get('type'); // 'luxury' | 'affordable'
   const urlDayOuting = searchParams.get('dayOuting') === 'true';
   const urlDestination = searchParams.get('destination') || '';
+  const urlLocation = searchParams.get('location') || '';
+  const urlTag = searchParams.get('tag') || '';
   const urlAI = searchParams.get('ai') === 'true';
 
   // Legacy deep-link: /search?ai=true should land on the real planner.
@@ -28,7 +30,7 @@ export default function SearchPage() {
   }, [urlAI, navigate]);
 
   const [view, setView] = useState<'list' | 'map'>('list');
-  const [sort, setSort] = useState('Recommended');
+  const [sort, setSort] = useState('Top Rated');
   const [filterOpen, setFilterOpen] = useState(false);
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(50000);
@@ -38,7 +40,9 @@ export default function SearchPage() {
   const [stayType, setStayType] = useState<'all' | 'luxury' | 'affordable'>(
     urlType === 'luxury' ? 'luxury' : urlType === 'affordable' ? 'affordable' : 'all'
   );
-  const [destination, setDestination] = useState(urlDestination);
+  const [destination, setDestination] = useState(urlDestination || urlLocation);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Apply luxury/affordable price range on mount
   useEffect(() => {
@@ -51,40 +55,23 @@ export default function SearchPage() {
     }
   }, [urlType]);
 
-  const enrichedProperties = useMemo(() => {
-    const cmsData = loadCMSData();
-    return cmsData.properties.map((cp) => {
-      const mock = mockProperties.find((m) => m.id === cp.id);
-      return {
-        id: cp.id,
-        name: cp.name,
-        location: cp.location,
-        city: cp.city,
-        state: cp.state ?? mock?.state ?? '',
-        distanceKm: mock?.distanceKm ?? 10,
-        pricePerNight: cp.pricePerNight,
-        originalPrice: cp.originalPrice,
-        rating: cp.rating,
-        reviewCount: cp.reviewCount,
-        images: cp.images,
-        tags: cp.tags,
-        amenities: cp.amenities,
-        type: (cp.type ?? mock?.type ?? 'villa') as typeof mockProperties[0]['type'],
-        verified: cp.verified ?? false,
-        superhost: cp.superhost ?? false,
-        scarcity: cp.scarcity,
-        description: cp.description,
-        bedrooms: cp.bedrooms,
-        bathrooms: cp.bathrooms,
-        maxGuests: cp.maxGuests,
-        hasDayPackage: cp.dayPackage?.enabled === true,
-        dayPackagePrice: cp.dayPackage?.pricePerPerson,
-        categoryRatings: cp.categoryRatings ?? mock?.categoryRatings ?? { cleanliness: 4.5, communication: 4.5, checkIn: 4.5, accuracy: 4.5, location: 4.5, value: 4.5 },
-        host: cp.host ?? mock?.host ?? { name: '', avatar: '', joinedYear: 2020, superhost: false },
-        addOns: cp.addOns ?? [],
-      };
-    });
-  }, []);
+  useEffect(() => {
+    setLoading(true);
+    fetchProperties({
+      location: destination || undefined,
+      type: urlType && !['luxury', 'affordable'].includes(urlType) ? urlType : undefined,
+      tag: urlTag || undefined,
+      rating: minRating || undefined,
+      minPrice: stayType === 'affordable' ? 0 : stayType === 'luxury' ? LUXURY_THRESHOLD : minPrice,
+      maxPrice: stayType === 'affordable' ? AFFORDABLE_MAX : maxPrice,
+      amenities: selectedAmenities,
+      sort: sort === 'Price: Low to High' ? 'price_asc' : sort === 'Price: High to Low' ? 'price_desc' : 'rating',
+      limit: 100,
+    })
+      .then((data) => setProperties(data.properties))
+      .catch(() => setProperties([]))
+      .finally(() => setLoading(false));
+  }, [destination, maxPrice, minPrice, minRating, selectedAmenities, sort, stayType, urlTag]);
 
   const toggleAmenity = (a: string) =>
     setSelectedAmenities((prev) => prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]);
@@ -97,7 +84,7 @@ export default function SearchPage() {
   };
 
   const filtered = useMemo(() => {
-    let list = [...enrichedProperties];
+    let list = [...properties];
 
     if (destination) {
       const d = destination.toLowerCase();
@@ -123,7 +110,7 @@ export default function SearchPage() {
     else if (sort === 'Top Rated') list.sort((a, b) => b.rating - a.rating);
     else if (sort === 'Distance') list.sort((a, b) => a.distanceKm - b.distanceKm);
     return list;
-  }, [enrichedProperties, minPrice, maxPrice, selectedAmenities, stayType, sort, minRating, dayOutingOnly, destination]);
+  }, [properties, minPrice, maxPrice, selectedAmenities, stayType, sort, minRating, dayOutingOnly, destination]);
 
   const activeFilterCount =
     selectedAmenities.length +
@@ -164,7 +151,7 @@ export default function SearchPage() {
                 <i className="ri-arrow-left-line text-stone-700" />
               </button>
               <span className="font-semibold text-stone-900 text-sm whitespace-nowrap">
-                {filtered.length} stays found
+                {loading ? 'Loading stays...' : `${filtered.length} stays found`}
               </span>
             </div>
 

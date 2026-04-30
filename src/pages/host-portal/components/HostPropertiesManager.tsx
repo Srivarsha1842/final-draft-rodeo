@@ -12,11 +12,14 @@ interface Props {
 
 type FormSection = 'basic' | 'addons' | 'daypackage';
 
+const curatedTags = ['Corporate Getaways', 'School Trips', 'Private Stays', 'Pet Friendly', 'Beach Front'];
+
 const emptyAddOn = (): CMSAddOn => ({ id: `a_${Date.now()}_${Math.random()}`, name: '', price: 0, image: '', description: '' });
 
 const emptyForm = (): Omit<HostProperty, 'id' | 'hostId' | 'createdAt' | 'rating' | 'reviewCount' | 'verified'> => ({
   name: '', location: '', city: '', state: '', pricePerNight: 0, images: [''], tags: [], type: 'villa',
   bedrooms: 1, bathrooms: 1, maxGuests: 2, description: '', status: 'pending',
+  isExclusive: false,
   addOns: [],
   dayPackage: { enabled: false, description: '', timing: '', pricePerPerson: 0, meals: [], activities: [], facilities: [], image: '' },
 });
@@ -37,7 +40,7 @@ export default function HostPropertiesManager({ hostId, properties, onUpdate }: 
     saveHostData(data);
     // Sync each updated property's add-ons + day package to CMS store
     updated.forEach((p) => {
-      syncHostPropertyToCMS({ id: p.id, addOns: p.addOns, dayPackage: p.dayPackage, housePolicies: p.housePolicies });
+      syncHostPropertyToCMS({ id: p.id, addOns: p.addOns, dayPackage: p.dayPackage, housePolicies: p.housePolicies, tags: p.tags, isExclusive: p.isExclusive });
     });
     onUpdate(updated);
   };
@@ -49,6 +52,7 @@ export default function HostPropertiesManager({ hostId, properties, onUpdate }: 
       name: p.name, location: p.location, city: p.city, state: p.state, pricePerNight: p.pricePerNight,
       images: [...p.images], tags: [...p.tags], type: p.type, bedrooms: p.bedrooms, bathrooms: p.bathrooms,
       maxGuests: p.maxGuests, description: p.description, status: p.status,
+      isExclusive: p.isExclusive ?? false,
       addOns: p.addOns ? [...p.addOns] : [],
       dayPackage: p.dayPackage ? { ...p.dayPackage, meals: [...(p.dayPackage.meals ?? [])], activities: [...(p.dayPackage.activities ?? [])], facilities: [...(p.dayPackage.facilities ?? [])] } : { enabled: false, description: '', timing: '', pricePerPerson: 0, meals: [], activities: [], facilities: [], image: '' },
     });
@@ -222,6 +226,21 @@ export default function HostPropertiesManager({ hostId, properties, onUpdate }: 
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-stone-700 mb-1.5">Tags / Amenities</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                  {curatedTags.map((tag) => (
+                    <label key={tag} className="flex items-center gap-2 text-xs text-stone-600 border border-stone-200 rounded-xl px-3 py-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.tags.includes(tag)}
+                        onChange={(e) => setForm({
+                          ...form,
+                          tags: e.target.checked ? Array.from(new Set([...form.tags, tag])) : form.tags.filter((t) => t !== tag),
+                        })}
+                      />
+                      {tag}
+                    </label>
+                  ))}
+                </div>
                 <div className="flex gap-2 mb-2 flex-wrap">
                   {form.tags.map((t) => (
                     <span key={t} className="flex items-center gap-1 px-3 py-1 bg-stone-100 text-stone-700 text-xs rounded-full">
@@ -234,6 +253,16 @@ export default function HostPropertiesManager({ hostId, properties, onUpdate }: 
                   <input value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())} className="flex-1 px-4 py-2 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-400" placeholder="e.g. Pool, Mountain View" />
                   <button type="button" onClick={addTag} className="px-4 py-2 bg-stone-100 text-stone-700 rounded-xl text-sm hover:bg-stone-200 cursor-pointer whitespace-nowrap">Add</button>
                 </div>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
+                  <input
+                    type="checkbox"
+                    checked={form.isExclusive ?? false}
+                    onChange={(e) => setForm({ ...form, isExclusive: e.target.checked })}
+                  />
+                  Mark as Triprodeo Exclusive
+                </label>
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-stone-700 mb-1.5">Description</label>

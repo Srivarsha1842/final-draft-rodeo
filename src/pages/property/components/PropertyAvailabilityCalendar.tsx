@@ -1,19 +1,22 @@
 import { useState } from 'react';
 
 interface Props {
-  checkIn: string;
-  checkOut: string;
-  onCheckInChange: (d: string) => void;
-  onCheckOutChange: (d: string) => void;
+  checkIn?: string;
+  checkOut?: string;
+  onCheckInChange?: (d: string) => void;
+  onCheckOutChange?: (d: string) => void;
+  propertyId?: string;
 }
 
 const BLOCKED_OFFSETS = [3, 4, 9, 17, 18, 25, 26];
 
-export default function PropertyAvailabilityCalendar({ checkIn, checkOut, onCheckInChange, onCheckOutChange }: Props) {
+export default function PropertyAvailabilityCalendar({ checkIn = '', checkOut = '', onCheckInChange, onCheckOutChange }: Props) {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selecting, setSelecting] = useState<'in' | 'out' | null>(null);
+  const setCheckIn = onCheckInChange ?? (() => undefined);
+  const setCheckOut = onCheckOutChange ?? (() => undefined);
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
@@ -39,16 +42,16 @@ export default function PropertyAvailabilityCalendar({ checkIn, checkOut, onChec
     if (isPast(day) || isBlocked(day)) return;
     const iso = isoDate(day);
     if (!checkIn || selecting === 'in') {
-      onCheckInChange(iso);
-      onCheckOutChange('');
+      setCheckIn(iso);
+      setCheckOut('');
       setSelecting('out');
     } else {
       if (iso <= checkIn) {
-        onCheckInChange(iso);
-        onCheckOutChange('');
+        setCheckIn(iso);
+        setCheckOut('');
         setSelecting('out');
       } else {
-        onCheckOutChange(iso);
+        setCheckOut(iso);
         setSelecting(null);
       }
     }
@@ -146,7 +149,7 @@ export default function PropertyAvailabilityCalendar({ checkIn, checkOut, onChec
 
       {checkIn && checkOut && (
         <button
-          onClick={() => { onCheckInChange(''); onCheckOutChange(''); setSelecting(null); }}
+          onClick={() => { setCheckIn(''); setCheckOut(''); setSelecting(null); }}
           className="mt-3 text-sm text-stone-500 hover:text-stone-900 transition-colors cursor-pointer underline"
         >
           Clear dates
