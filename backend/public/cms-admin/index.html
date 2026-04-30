@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Triprodeo CMS Admin</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="login-screen">
+      <div class="login-card">
+        <div class="login-logo">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="20" fill="#6366f1"/><path d="M12 28L20 12L28 28" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 23H25.5" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
+          <span>Triprodeo CMS</span>
+        </div>
+        <h2>Admin Sign In</h2>
+        <p class="login-sub">Manage pages, SEO &amp; site content</p>
+        <div id="login-error" class="alert alert-error hidden"></div>
+        <form id="login-form">
+          <label>Email
+            <input type="email" id="login-email" placeholder="admin@triprodeo.com" required />
+          </label>
+          <label>Password
+            <input type="password" id="login-password" placeholder="••••••••" required />
+          </label>
+          <button type="submit" class="btn btn-primary btn-full" id="login-btn">Sign In</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="main-app" class="hidden">
+
+      <!-- MOBILE TOP BAR -->
+      <div class="mobile-topbar">
+        <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Open menu">
+          <i>☰</i>
+        </button>
+        <div class="topbar-brand">
+          <svg width="22" height="22" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="20" fill="#6366f1"/><path d="M12 28L20 12L28 28" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 23H25.5" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
+          <span>Triprodeo CMS</span>
+        </div>
+      </div>
+
+      <!-- MOBILE BACKDROP -->
+      <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+      <!-- SIDEBAR -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <svg width="28" height="28" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="20" fill="#6366f1"/><path d="M12 28L20 12L28 28" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 23H25.5" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
+          <span>Triprodeo CMS</span>
+        </div>
+        <nav class="sidebar-nav">
+          <div class="nav-group">
+            <span class="nav-group-label">Content</span>
+            <a class="nav-item active" data-view="dashboard"><span>📊</span> Dashboard</a>
+            <a class="nav-item" data-view="pages"><span>📄</span> Pages</a>
+            <a class="nav-item" data-view="blog"><span>✍️</span> Blog</a>
+            <a class="nav-item" data-view="experiences"><span>✨</span> Experiences</a>
+            <a class="nav-item" data-view="destinations"><span>📍</span> Destinations</a>
+            <a class="nav-item" data-view="settings"><span>⚙️</span> Site Settings</a>
+          </div>
+          <div class="nav-group">
+            <span class="nav-group-label">Business</span>
+            <a class="nav-item" data-view="hosts"><span>🏠</span> Hosts</a>
+            <a class="nav-item" data-view="bookings"><span>📅</span> Bookings</a>
+            <a class="nav-item" data-view="revenue"><span>💰</span> Revenue</a>
+          </div>
+          <div class="nav-group">
+            <span class="nav-group-label">SEO Tools</span>
+            <a class="nav-item" data-view="sitemap"><span>🗺️</span> Sitemap</a>
+          </div>
+        </nav>
+        <div class="sidebar-footer">
+          <button id="logout-btn" class="btn btn-ghost btn-sm">Sign Out</button>
+        </div>
+      </aside>
+
+      <!-- CONTENT AREA -->
+      <main class="content">
+        <div id="view-dashboard" class="view"></div>
+        <div id="view-pages" class="view hidden"></div>
+        <div id="view-page-editor" class="view hidden"></div>
+        <div id="view-blog" class="view hidden"></div>
+        <div id="view-experiences" class="view hidden"></div>
+        <div id="view-destinations" class="view hidden"></div>
+        <div id="view-settings" class="view hidden"></div>
+        <div id="view-hosts" class="view hidden"></div>
+        <div id="view-bookings" class="view hidden"></div>
+        <div id="view-revenue" class="view hidden"></div>
+        <div id="view-sitemap" class="view hidden"></div>
+      </main>
+
+    </div><!-- /main-app -->
+
+  </div><!-- /app -->
+
+  <script src="assets/main.js"></script>
+</body>
+</html>

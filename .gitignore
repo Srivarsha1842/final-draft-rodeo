@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+out/
+build/
+.next/
+backend/dist/
+
+# Env files
+.env
+.env.local
+.env.*.local
+**/.env
+!.env.example
+!**/.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+backend/server.log
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Misc
+.vercel
+.turbo
+coverage/
+*.tsbuildinfo
+.cache/
+
+# Prisma
+backend/prisma/*.db
+backend/prisma/migrations/dev.db*
+
+# Auto-generated types (regenerated on install/build)
+auto-imports.d.ts

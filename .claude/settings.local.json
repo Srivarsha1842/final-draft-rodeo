@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(npx ts-node-dev:*)",
+      "Bash(curl -s http://localhost:5000/health)",
+      "Bash(curl -s http://localhost:5000/api/properties?limit=2)",
+      "Bash(curl -s http://localhost:5000/api/cms/experiences)",
+      "Bash(curl -s -X POST http://localhost:5000/api/auth/admin/login -H \"Content-Type: application/json\" -d '{\"email\":\"admin@triprodeo.com\",\"password\":\"triprodeo2025\"}')",
+      "Bash(curl -s http://localhost:5000/sitemap.xml)",
+      "Bash(curl -s http://localhost:5000/robots.txt)",
+      "Bash(curl -s -X POST http://localhost:5000/api/auth/host/login -H \"Content-Type: application/json\" -d '{\"email\":\"ananya@triprodeo.com\",\"password\":\"host1234\"}')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('Host login OK:', d['data']['host']['name'], '/', d['data']['host']['package']\\)\")",
+      "Bash(pkill -f \"ts-node-dev\")",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(grep -o '\"role\":\"user\",\"content\":\"[^\"]\\\\{1,500\\\\}' /c/Users/nkara/.claude/projects/C--Users-nkara-Downloads-Triprodeo/2b06b73e-9467-4114-8149-4f6cbde6c1d1.jsonl)",
+      "Bash(npx tsc:*)",
+      "Bash(tasklist //FI \"IMAGENAME eq node.exe\")",
+      "Bash(powershell -Command \"Get-CimInstance Win32_Process -Filter \\\\\"Name='node.exe'\\\\\" | Select-Object ProcessId, CommandLine | Format-List\")",
+      "Bash(npm run:*)",
+      "Bash(ls C:/Users/nkara/Downloads/Triprodeo/src/*.ts*)",
+      "Bash(netstat -ano)",
+      "Bash(curl -s http://localhost:5000/api/cms/public-content)"
+    ]
+  }
+}

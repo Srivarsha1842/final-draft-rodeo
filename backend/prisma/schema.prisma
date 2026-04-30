@@ -1,0 +1,666 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum HostPackage {
+  BASIC
+  STANDARD
+  PREMIUM
+}
+
+enum HostStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum PropertyType {
+  VILLA
+  BOUTIQUE
+  RESORT
+  COTTAGE
+  HOTEL
+  HERITAGE
+  HOUSEBOAT
+  TREEHOUSE
+  FARMSTAY
+}
+
+enum PropertyStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  REJECTED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum PaymentMethod {
+  CARD
+  UPI
+  NETBANKING
+  WALLET
+  CASH
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  BOOKING
+  MESSAGE
+  PAYOUT
+  SYSTEM
+  REVIEW
+  PROMOTION
+}
+
+enum PromotionType {
+  PERCENTAGE
+  FLAT
+  EARLY_BIRD
+  LAST_MINUTE
+  LONG_STAY
+}
+
+enum PromotionStatus {
+  ACTIVE
+  SCHEDULED
+  EXPIRED
+  PAUSED
+}
+
+enum StaffRole {
+  MANAGER
+  RECEPTIONIST
+  HOUSEKEEPER
+  CHEF
+  SECURITY
+  MAINTENANCE
+  DRIVER
+  CONCIERGE
+}
+
+enum StaffStatus {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+}
+
+enum ShiftType {
+  MORNING
+  AFTERNOON
+  NIGHT
+  FULL_DAY
+}
+
+enum MenuCategory {
+  BREAKFAST
+  LUNCH
+  DINNER
+  BEVERAGES
+  SNACKS
+  DESSERTS
+}
+
+enum InventoryCategory {
+  LINENS
+  TOILETRIES
+  CLEANING
+  KITCHEN
+  MAINTENANCE
+  ELECTRONICS
+  FURNITURE
+  OTHER
+}
+
+enum CmsPageStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ─────────────────────────────────────────────
+// ADMIN
+// ─────────────────────────────────────────────
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String   @default("Admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+// ─────────────────────────────────────────────
+// USERS (Guests)
+// ─────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  password     String
+  name         String
+  phone        String?
+  avatar       String?
+  refreshToken String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  bookings     Booking[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// HOSTS
+// ─────────────────────────────────────────────
+
+model Host {
+  id           String      @id @default(uuid())
+  email        String      @unique
+  password     String
+  name         String
+  phone        String?
+  avatar       String?
+  package      HostPackage @default(BASIC)
+  status       HostStatus  @default(ACTIVE)
+  bankDetails  Json?
+  refreshToken String?
+  joinedAt     DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  properties    Property[]
+  bookings      Booking[]
+  messages      Message[]
+  notifications Notification[]
+  promotions    Promotion[]
+  reviews       Review[]
+  payouts       Payout[]
+
+  @@map("hosts")
+}
+
+// ─────────────────────────────────────────────
+// PROPERTIES
+// ─────────────────────────────────────────────
+
+model Property {
+  id            String         @id @default(uuid())
+  hostId        String
+  host          Host           @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  name          String
+  description   String         @db.Text
+  location      String
+  city          String
+  state         String
+  country       String         @default("India")
+  latitude      Float?
+  longitude     Float?
+  pricePerNight Float
+  originalPrice Float?
+  type          PropertyType   @default(VILLA)
+  status        PropertyStatus @default(PENDING)
+  verified      Boolean        @default(false)
+  superhost     Boolean        @default(false)
+  bedrooms      Int            @default(1)
+  bathrooms     Int            @default(1)
+  maxGuests     Int            @default(2)
+  images        String[]
+  tags          String[]
+  amenities     String[]
+  rating        Float          @default(0)
+  reviewCount   Int            @default(0)
+  scarcity      String?
+  housePolicies Json?
+  dayPackage    Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  roomTypes  RoomType[]
+  addOns     AddOn[]
+  bookings   Booking[]
+  reviews    Review[]
+  staff      StaffMember[]
+  menuItems  MenuItem[]
+  inventory  InventoryItem[]
+  seoMeta    PropertySeo?
+
+  @@map("properties")
+}
+
+model RoomType {
+  id             String   @id @default(uuid())
+  propertyId     String
+  property       Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name           String
+  totalRooms     Int      @default(1)
+  availableRooms Int      @default(1)
+  pricePerNight  Float
+  capacity       Int      @default(2)
+  bedType        String
+  size           String?
+  amenities      String[]
+  images         String[]
+  description    String?
+  status         String   @default("available")
+  createdAt      DateTime @default(now())
+
+  @@map("room_types")
+}
+
+model AddOn {
+  id          String   @id @default(uuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name        String
+  price       Float
+  image       String?
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@map("add_ons")
+}
+
+// ─────────────────────────────────────────────
+// BOOKINGS
+// ─────────────────────────────────────────────
+
+model Booking {
+  id            String        @id @default(uuid())
+  propertyId    String
+  property      Property      @relation(fields: [propertyId], references: [id])
+  hostId        String
+  host          Host          @relation(fields: [hostId], references: [id])
+  userId        String?
+  user          User?         @relation(fields: [userId], references: [id])
+  guestName     String
+  guestEmail    String
+  guestPhone    String
+  guestCount    Int
+  checkIn       DateTime
+  checkOut      DateTime
+  nights        Int
+  pricePerNight Float
+  totalAmount   Float
+  platformFee   Float
+  hostEarnings  Float
+  status        BookingStatus @default(PENDING)
+  paymentMethod PaymentMethod @default(CARD)
+  paymentRef    String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  messages Message[]
+  review   Review?
+
+  @@map("bookings")
+}
+
+// ─────────────────────────────────────────────
+// REVIEWS
+// ─────────────────────────────────────────────
+
+model Review {
+  id                   String   @id @default(uuid())
+  propertyId           String
+  property             Property @relation(fields: [propertyId], references: [id])
+  hostId               String
+  host                 Host     @relation(fields: [hostId], references: [id])
+  bookingId            String?  @unique
+  booking              Booking? @relation(fields: [bookingId], references: [id])
+  guestName            String
+  guestAvatar          String?
+  guestLocation        String?
+  rating               Float
+  cleanlinessRating    Float?
+  communicationRating  Float?
+  checkInRating        Float?
+  accuracyRating       Float?
+  locationRating       Float?
+  valueRating          Float?
+  comment              String   @db.Text
+  hostReply            String?  @db.Text
+  hostReplyDate        DateTime?
+  date                 DateTime @default(now())
+
+  @@map("reviews")
+}
+
+// ─────────────────────────────────────────────
+// MESSAGES
+// ─────────────────────────────────────────────
+
+model Message {
+  id           String   @id @default(uuid())
+  bookingId    String
+  booking      Booking  @relation(fields: [bookingId], references: [id])
+  hostId       String
+  host         Host     @relation(fields: [hostId], references: [id])
+  guestName    String
+  guestEmail   String
+  sender       String   // "host" | "guest"
+  content      String   @db.Text
+  read         Boolean  @default(false)
+  timestamp    DateTime @default(now())
+
+  @@map("messages")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model Notification {
+  id          String           @id @default(uuid())
+  hostId      String
+  host        Host             @relation(fields: [hostId], references: [id])
+  type        NotificationType
+  title       String
+  content     String           @db.Text
+  read        Boolean          @default(false)
+  actionUrl   String?
+  actionLabel String?
+  timestamp   DateTime         @default(now())
+
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────
+// PROMOTIONS
+// ─────────────────────────────────────────────
+
+model Promotion {
+  id            String          @id @default(uuid())
+  hostId        String
+  host          Host            @relation(fields: [hostId], references: [id])
+  title         String
+  description   String?
+  type          PromotionType
+  discountValue Float
+  promoCode     String          @unique
+  propertyIds   String[]
+  startDate     DateTime
+  endDate       DateTime
+  minNights     Int             @default(1)
+  maxUsage      Int             @default(100)
+  usageCount    Int             @default(0)
+  status        PromotionStatus @default(ACTIVE)
+  createdAt     DateTime        @default(now())
+
+  @@map("promotions")
+}
+
+// ─────────────────────────────────────────────
+// PAYOUTS
+// ─────────────────────────────────────────────
+
+model Payout {
+  id          String       @id @default(uuid())
+  hostId      String
+  host        Host         @relation(fields: [hostId], references: [id])
+  amount      Float
+  status      PayoutStatus @default(PENDING)
+  method      String?
+  reference   String?
+  period      String?
+  processedAt DateTime?
+  createdAt   DateTime     @default(now())
+
+  @@map("payouts")
+}
+
+// ─────────────────────────────────────────────
+// STAFF
+// ─────────────────────────────────────────────
+
+model StaffMember {
+  id              String      @id @default(uuid())
+  propertyId      String
+  property        Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name            String
+  role            StaffRole
+  phone           String?
+  email           String?
+  shift           ShiftType   @default(FULL_DAY)
+  joinedDate      DateTime    @default(now())
+  status          StaffStatus @default(ACTIVE)
+  salary          Float?
+  notes           String?
+  loginEmail      String?
+  loginPassword   String?
+  hasPortalAccess Boolean     @default(false)
+  permissions     String[]
+
+  @@map("staff_members")
+}
+
+// ─────────────────────────────────────────────
+// RESTAURANT
+// ─────────────────────────────────────────────
+
+model MenuItem {
+  id              String       @id @default(uuid())
+  propertyId      String
+  property        Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name            String
+  category        MenuCategory
+  price           Float
+  description     String?
+  image           String?
+  isVeg           Boolean      @default(true)
+  isAvailable     Boolean      @default(true)
+  preparationTime Int?
+  createdAt       DateTime     @default(now())
+
+  @@map("menu_items")
+}
+
+// ─────────────────────────────────────────────
+// INVENTORY
+// ─────────────────────────────────────────────
+
+model InventoryItem {
+  id              String            @id @default(uuid())
+  propertyId      String
+  property        Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name            String
+  category        InventoryCategory
+  unit            String
+  currentStock    Int               @default(0)
+  minStockLevel   Int               @default(5)
+  costPerUnit     Float?
+  supplier        String?
+  lastRestocked   DateTime?
+  notes           String?
+  createdAt       DateTime          @default(now())
+
+  @@map("inventory_items")
+}
+
+// ─────────────────────────────────────────────
+// CMS PAGES (Full SEO/AEO/GEO/AIO/SXO)
+// ─────────────────────────────────────────────
+
+model CmsPage {
+  id          String        @id @default(uuid())
+  slug        String        @unique
+  name        String
+  content     Json
+  status      CmsPageStatus @default(DRAFT)
+  publishedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // ── SEO Core ──
+  seoTitle       String?
+  seoDescription String?   @db.VarChar(320)
+  seoKeywords    String[]
+  canonicalUrl   String?
+  robots         String    @default("index, follow")
+  priority       Float     @default(0.8)
+  changefreq     String    @default("weekly")
+
+  // ── Open Graph / Social Cards ──
+  ogTitle       String?
+  ogDescription String?
+  ogImage       String?
+  ogImageAlt    String?
+  ogType        String    @default("website")
+  ogSiteName    String?
+  ogLocale      String    @default("en_IN")
+  ogUrl         String?
+
+  // ── Twitter Card ──
+  twitterCard        String  @default("summary_large_image")
+  twitterTitle       String?
+  twitterDescription String?
+  twitterImage       String?
+  twitterImageAlt    String?
+  twitterSite        String?
+  twitterCreator     String?
+
+  // ── Schema.org (JSON-LD) — multiple schemas as JSON array ──
+  schemaOrg Json?
+
+  // ── AEO — Answer Engine Optimization ──
+  faqItems          Json?   // [{question: string, answer: string}]
+  howToSteps        Json?   // [{name, text, image, url}]
+  speakableSelectors String[]
+  definedTerms      Json?   // [{name, description}] for DefinedTermSet
+
+  // ── GEO — Geographic / Generative Engine Optimization ──
+  geoLatitude      Float?
+  geoLongitude     Float?
+  geoRegion        String?
+  geoCountry       String?   @default("IN")
+  geoPlaceName     String?
+  geoICBM          String?   // "lat, lon" for ICBM meta tag
+  entityName       String?
+  entityType       String?
+  entitySameAs     String[]  // wikidata/DBpedia links for entity resolution
+
+  // ── AIO — AI Overview Optimization ──
+  topicClusters    String[]  // topic cluster keywords
+  pillarContent    Boolean   @default(false)
+  contentSummary   String?   @db.Text  // machine-readable summary for AI
+  keyFacts         Json?     // [{label, value}] key facts for AI extraction
+  targetQuestions  String[]  // questions this page answers
+
+  // ── SXO — Search Experience Optimization ──
+  breadcrumbs      Json?     // [{name, url}]
+  internalLinks    Json?     // [{anchor, url, context}]
+  relatedPages     String[]  // slugs of related pages
+  cta              Json?     // {text, url, type}
+  readingTimeMin   Int?
+  contentType      String?   // "guide", "listing", "faq", "article"
+
+  // ── hreflang ──
+  hreflangTags Json?   // [{lang, url}]
+
+  // ── Custom Head Tags ──
+  customMeta   Json?   // [{name, content}] arbitrary meta tags
+
+  seo PropertySeo[]
+
+  @@map("cms_pages")
+}
+
+// ─────────────────────────────────────────────
+// PROPERTY SEO (per-property SEO override)
+// ─────────────────────────────────────────────
+
+model PropertySeo {
+  id          String   @id @default(uuid())
+  propertyId  String   @unique
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  pageId      String?
+  page        CmsPage? @relation(fields: [pageId], references: [id])
+
+  seoTitle       String?
+  seoDescription String?
+  canonicalUrl   String?
+  ogImage        String?
+  schemaOrg      Json?
+  robots         String @default("index, follow")
+  updatedAt      DateTime @updatedAt
+
+  @@map("property_seo")
+}
+
+// ─────────────────────────────────────────────
+// GLOBAL SETTINGS (CMS site-wide settings)
+// ─────────────────────────────────────────────
+
+model SiteSettings {
+  id              String   @id @default(uuid())
+  key             String   @unique
+  value           Json
+  updatedAt       DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+// ─────────────────────────────────────────────
+// EXPERIENCES
+// ─────────────────────────────────────────────
+
+model Experience {
+  id       String @id @default(uuid())
+  title    String
+  location String
+  price    Float
+  duration String
+  rating   Float  @default(4.5)
+  category String
+  image    String?
+  tags     String[]
+  description String? @db.Text
+  createdAt DateTime @default(now())
+
+  @@map("experiences")
+}
+
+// ─────────────────────────────────────────────
+// TRENDING DESTINATIONS
+// ─────────────────────────────────────────────
+
+model TrendingDestination {
+  id           String   @id @default(uuid())
+  name         String
+  tagline      String?
+  country      String   @default("India")
+  properties   Int      @default(0)
+  startingPrice Float?
+  badge        String?
+  badgeColor   String?
+  image        String?
+  tags         String[]
+  createdAt    DateTime @default(now())
+
+  @@map("trending_destinations")
+}

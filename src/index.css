@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Invisible scrollbar utility — keeps scroll functionality, hides track/thumb visuals */
+.scrollbar-invisible {
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;        /* IE / old Edge */
+}
+.scrollbar-invisible::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  background: transparent;         /* Chrome / Safari / new Edge */
+}
+.scrollbar-invisible::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-invisible::-webkit-scrollbar-thumb {
+  background: transparent;
+}
