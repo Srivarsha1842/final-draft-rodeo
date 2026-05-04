@@ -3,6 +3,8 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navbar from '@/components/feature/Navbar';
 import Footer from '@/components/feature/Footer';
 import { properties } from '@/mocks/properties';
+import { apiFetch } from '@/lib/apiClient';
+import { loadCMSData } from '@/pages/admin/cmsStore';
 
 interface GuestDetails {
   firstName: string;
@@ -25,13 +27,15 @@ export default function BookingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
-  const property = properties.find((p) => p.id === id) || properties[0];
+  const cmsProperty = loadCMSData().properties.find((p) => p.id === id);
+  const property = cmsProperty || properties.find((p) => p.id === id) || properties[0];
   
   // Parse URL params
   const checkInParam = searchParams.get('checkIn') || '';
   const checkOutParam = searchParams.get('checkOut') || '';
   const guestsParam = parseInt(searchParams.get('guests') || '2');
   const addOnsParam = searchParams.get('addOns')?.split(',').filter(Boolean) || [];
+  const roomIdParam = searchParams.get('room') || '';
   
   const [step, setStep] = useState(1);
   const [isPartialPayment, setIsPartialPayment] = useState(false);
@@ -63,12 +67,18 @@ export default function BookingPage() {
   const [checkIn, setCheckIn] = useState(checkInParam);
   const [checkOut, setCheckOut] = useState(checkOutParam);
   const [guests, setGuests] = useState(guestsParam);
+  const selectedRoom = 'roomTypes' in property
+    ? property.roomTypes.find((room) => room.id === roomIdParam)
+    : undefined;
+  const roomCapacity = selectedRoom?.capacity ?? property.maxGuests;
+  const roomPrice = selectedRoom?.pricePerNight ?? property.pricePerNight;
+  const roomsRequired = Math.max(1, Math.ceil(guests / Math.max(1, roomCapacity)));
   
   // Calculate pricing
   const nights = checkIn && checkOut 
     ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
     : 2;
-  const subtotal = property.pricePerNight * nights;
+  const subtotal = roomPrice * roomsRequired * nights;
   const addOnTotal = property.addOns.filter((a) => selectedAddOns.includes(a.id)).reduce((s, a) => s + a.price, 0);
   const serviceFee = Math.round(subtotal * 0.1);
   const totalBeforeDiscount = subtotal + serviceFee + addOnTotal;
@@ -109,14 +119,34 @@ export default function BookingPage() {
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
-    
-    // Simulate payment processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    
-    setBookingId('TRP' + Math.random().toString(36).substr(2, 9).toUpperCase());
-    setIsConfirmed(true);
-    setIsProcessing(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    try {
+      const booking = await apiFetch<{ id: string }>('/bookings', {
+        method: 'POST',
+        body: JSON.stringify({
+          propertyId: property.id,
+          roomId: roomIdParam || undefined,
+          guestName: `${guestDetails.firstName} ${guestDetails.lastName}`.trim(),
+          guestEmail: guestDetails.email,
+          guestPhone: guestDetails.phone,
+          guests,
+          roomsRequired,
+          checkIn,
+          checkOut,
+          source: 'ONLINE',
+          paymentMethod: 'CARD',
+          notes: guestDetails.specialRequests,
+        }),
+      });
+
+      setBookingId(booking.id);
+      setIsConfirmed(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Unable to create booking');
+    } finally {
+      setIsProcessing(false);
+    }
   };
   
   const formatCardNumber = (value: string) => {
@@ -184,6 +214,7 @@ export default function BookingPage() {
                 <div className="border-t border-stone-100 pt-4">
                   <p className="text-stone-500 text-xs uppercase tracking-wider mb-1">Guests</p>
                   <p className="font-semibold text-stone-900">{guests} {guests === 1 ? 'Guest' : 'Guests'}</p>
+                  <p className="text-stone-500 text-sm">{roomsRequired} room{roomsRequired > 1 ? 's' : ''} required</p>
                 </div>
                 
                 {selectedAddOns.length > 0 && (
@@ -210,7 +241,7 @@ export default function BookingPage() {
               <h3 className="font-semibold text-stone-900 mb-4">Payment Summary</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-stone-600">
-                  <span>₹{property.pricePerNight.toLocaleString('en-IN')} × {nights} nights</span>
+                  <span>₹{roomPrice.toLocaleString('en-IN')} × {roomsRequired} room{roomsRequired > 1 ? 's' : ''} × {nights} nights</span>
                   <span>₹{subtotal.toLocaleString('en-IN')}</span>
                 </div>
                 {addOnTotal > 0 && (
@@ -732,14 +763,14 @@ export default function BookingPage() {
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <i className="ri-user-line text-stone-400" />
-                      <span className="text-stone-600">{guests} {guests === 1 ? 'Guest' : 'Guests'}</span>
+                      <span className="text-stone-600">{guests} {guests === 1 ? 'Guest' : 'Guests'} · {roomsRequired} room{roomsRequired > 1 ? 's' : ''}</span>
                     </div>
                   </div>
                   
                   {/* Price Breakdown */}
                   <div className="p-4 space-y-2 text-sm">
                     <div className="flex justify-between text-stone-600">
-                      <span>₹{property.pricePerNight.toLocaleString('en-IN')} × {nights} nights</span>
+                      <span>₹{roomPrice.toLocaleString('en-IN')} × {roomsRequired} room{roomsRequired > 1 ? 's' : ''} × {nights} nights</span>
                       <span>₹{subtotal.toLocaleString('en-IN')}</span>
                     </div>
                     {addOnTotal > 0 && (

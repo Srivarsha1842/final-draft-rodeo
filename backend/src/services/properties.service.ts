@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { Prisma, PropertyStatus } from '@prisma/client';
+import { getAvailableRooms, getCalendarAvailability, parseStayDate, getNights } from './inventory.service';
 
 export const getAllProperties = async (filters: {
   location?: string;
@@ -19,11 +20,14 @@ export const getAllProperties = async (filters: {
 }) => {
   const {
     location,
+    city,
     type,
     minPrice,
     maxPrice,
     minGuests,
     rating,
+    checkIn,
+    checkOut,
     amenities,
     tag,
     page = 1,
@@ -43,6 +47,7 @@ export const getAllProperties = async (filters: {
       { location: { contains: location, mode: 'insensitive' } },
     ];
   }
+  if (city) where.city = { contains: city, mode: 'insensitive' };
   if (type) where.type = type.toUpperCase() as Prisma.EnumPropertyTypeFilter;
   if (minPrice !== undefined || maxPrice !== undefined) {
     where.pricePerNight = {};
@@ -63,21 +68,53 @@ export const getAllProperties = async (filters: {
       ? { createdAt: 'desc' }
       : { rating: 'desc' };
 
-  const [total, properties] = await prisma.$transaction([
-    prisma.property.count({ where }),
-    prisma.property.findMany({
+  const include = {
+    host: { select: { name: true, avatar: true } },
+    roomTypes: true,
+    _count: { select: { reviews: true } },
+  } satisfies Prisma.PropertyInclude;
+
+  const needsAvailabilityFilter = Boolean(checkIn && checkOut && minGuests);
+  if (!needsAvailabilityFilter) {
+    const [total, properties] = await prisma.$transaction([
+      prisma.property.count({ where }),
+      prisma.property.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+        include,
+      }),
+    ]);
+
+    return { properties, total, page, limit, pages: Math.ceil(total / limit) };
+  }
+
+  const checkInDate = parseStayDate(checkIn!, 'checkIn');
+  const checkOutDate = parseStayDate(checkOut!, 'checkOut');
+  getNights(checkInDate, checkOutDate);
+
+  const candidates = await prisma.property.findMany({
       where,
       orderBy,
-      skip: (page - 1) * limit,
-      take: limit,
-      include: {
-        host: { select: { name: true, avatar: true } },
-        _count: { select: { reviews: true } },
-      },
-    }),
-  ]);
+      include,
+  });
 
-  return { properties, total, page, limit, pages: Math.ceil(total / limit) };
+  const availability = await Promise.all(
+    candidates.map(async (property) => {
+      const roomChecks = await Promise.all(property.roomTypes.map(async (room) => {
+      const roomsRequired = Math.ceil((minGuests ?? 1) / room.capacity);
+        const { availableRooms } = await getAvailableRooms(room.id, checkInDate, checkOutDate);
+        return roomsRequired <= availableRooms;
+      }));
+      return { property, available: roomChecks.some(Boolean) };
+    })
+  );
+
+  const filtered = availability.filter((item) => item.available).map((item) => item.property);
+
+  const paginated = filtered.slice((page - 1) * limit, page * limit);
+  return { properties: paginated, total: filtered.length, page, limit, pages: Math.ceil(filtered.length / limit) };
 };
 
 const activeWhere: Prisma.PropertyWhereInput = {
@@ -169,17 +206,21 @@ export const getPropertyAvailability = async (
   checkIn: string,
   checkOut: string
 ) => {
-  const booked = await prisma.booking.findMany({
-    where: {
-      propertyId: id,
-      status: { in: ['CONFIRMED', 'PENDING'] },
-      OR: [
-        { checkIn: { lte: new Date(checkOut) }, checkOut: { gte: new Date(checkIn) } },
-      ],
-    },
-    select: { checkIn: true, checkOut: true },
+  const rooms = await prisma.roomType.findMany({
+    where: { propertyId: id, status: 'available' },
+    select: { id: true, name: true },
   });
-  return { available: booked.length === 0, blockedDates: booked };
+  const roomAvailability = await Promise.all(
+    rooms.map(async (room) => ({
+      room,
+      calendar: await getCalendarAvailability(room.id, checkIn, checkOut),
+    }))
+  );
+
+  return {
+    available: roomAvailability.some(({ calendar }) => calendar.some((day) => day.available > 0)),
+    rooms: roomAvailability,
+  };
 };
 
 export const createProperty = async (hostId: string, data: Prisma.PropertyCreateInput) => {
