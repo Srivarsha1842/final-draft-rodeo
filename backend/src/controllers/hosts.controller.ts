@@ -81,6 +81,48 @@ export const listBookings = async (req: Request, res: Response, next: NextFuncti
   } catch (err) { next(err); }
 };
 
+export const createWalkInBooking = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const {
+      propertyId,
+      roomId,
+      guestName,
+      guestEmail,
+      guestPhone,
+      guestCount,
+      guests,
+      roomsRequired,
+      checkIn,
+      checkOut,
+      paymentMethod,
+      notes,
+    } = req.body;
+
+    if ((!roomId && !propertyId) || !guestName || !guestEmail || !guestPhone || !checkIn || !checkOut) {
+      return sendError(res, 'Missing required booking fields', 400);
+    }
+
+    const booking = await bookingsService.createBooking({
+      propertyId,
+      roomId,
+      guestName,
+      guestEmail,
+      guestPhone,
+      guestCount: guestCount ? parseInt(guestCount) : undefined,
+      guests: guests ? parseInt(guests) : undefined,
+      roomsRequired: roomsRequired ? parseInt(roomsRequired) : undefined,
+      checkIn,
+      checkOut,
+      source: 'WALKIN',
+      paymentMethod,
+      notes,
+      hostId: req.user!.id,
+    });
+
+    sendSuccess(res, booking, 201, 'Walk-in booking created');
+  } catch (err) { next(err); }
+};
+
 export const updateBookingStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { status } = req.body;

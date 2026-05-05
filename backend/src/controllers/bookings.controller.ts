@@ -15,7 +15,6 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
       roomsRequired,
       checkIn,
       checkOut,
-      source,
       paymentMethod,
       notes,
     } = req.body;
@@ -33,7 +32,7 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
       roomsRequired: roomsRequired ? parseInt(roomsRequired) : undefined,
       checkIn,
       checkOut,
-      source,
+      source: 'ONLINE',
       paymentMethod,
       notes,
       userId: req.user?.id,

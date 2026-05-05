@@ -77,6 +77,19 @@ export const getBookedRoomsForRange = async (
   return aggregate._sum.rooms ?? 0;
 };
 
+export const getMinimumAvailableRooms = async (
+  roomId: string,
+  checkIn: Date,
+  checkOut: Date,
+  client: PrismaClientLike = prisma
+) => {
+  const calendar = await getCalendarAvailability(roomId, checkIn, checkOut, client);
+  return calendar.reduce(
+    (minimum, day) => Math.min(minimum, day.available),
+    calendar[0]?.available ?? 0
+  );
+};
+
 export const getAvailableRooms = async (
   roomId: string,
   checkIn: Date,
@@ -84,13 +97,17 @@ export const getAvailableRooms = async (
   client: PrismaClientLike = prisma
 ) => {
   const room = await getRoomForInventory(roomId, client);
-  const bookedRooms = await getBookedRoomsForRange(roomId, checkIn, checkOut, client);
+  const calendar = await getCalendarAvailability(roomId, checkIn, checkOut, client);
+  const availableRooms = calendar.reduce(
+    (minimum, day) => Math.min(minimum, day.available),
+    room.inventoryCount
+  );
 
   return {
     room,
     totalRooms: room.inventoryCount,
-    bookedRooms,
-    availableRooms: Math.max(0, room.inventoryCount - bookedRooms),
+    bookedRooms: room.inventoryCount - availableRooms,
+    availableRooms,
   };
 };
 
@@ -118,15 +135,16 @@ export const assertRoomsAvailable = async (
 
 export const getCalendarAvailability = async (
   roomId: string,
-  startDate: string,
-  endDate: string
+  startDate: string | Date,
+  endDate: string | Date,
+  client: PrismaClientLike = prisma
 ) => {
-  const start = parseStayDate(startDate, 'startDate');
-  const end = parseStayDate(endDate, 'endDate');
+  const start = startDate instanceof Date ? startDate : parseStayDate(startDate, 'startDate');
+  const end = endDate instanceof Date ? endDate : parseStayDate(endDate, 'endDate');
   getNights(start, end);
 
-  const room = await getRoomForInventory(roomId);
-  const bookings = await prisma.booking.findMany({
+  const room = await getRoomForInventory(roomId, client);
+  const bookings = await client.booking.findMany({
     where: {
       roomId,
       status: { in: [...activeBookingStatuses] },

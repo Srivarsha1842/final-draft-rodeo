@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import { BookingSource, BookingStatus, PaymentMethod } from '@prisma/client';
+import { BookingSource, BookingStatus, PaymentMethod, Prisma } from '@prisma/client';
 import {
   assertRoomsAvailable,
   calculateRoomsRequired,
@@ -23,6 +23,7 @@ export const createBooking = async (data: {
   paymentMethod?: string;
   notes?: string;
   userId?: string;
+  hostId?: string;
 }) => {
   const checkIn = parseStayDate(data.checkIn, 'checkIn');
   const checkOut = parseStayDate(data.checkOut, 'checkOut');
@@ -35,72 +36,97 @@ export const createBooking = async (data: {
   }
 
   const source = normalizeSource(data.source);
+  if (source === 'WALKIN' && !data.hostId) {
+    throw Object.assign(new Error('Walk-in bookings require host authentication'), { statusCode: 403 });
+  }
 
-  return prisma.$transaction(async (tx) => {
-    const room = await getRoomForInventory(roomId, tx);
-    const roomsRequired = data.roomsRequired
-      ? Number(data.roomsRequired)
-      : calculateRoomsRequired(guests, room.capacity);
+  return createBookingWithRetry(async () => {
+    return prisma.$transaction(async (tx) => {
+      const room = await getRoomForInventory(roomId, tx);
+      if (data.hostId && room.property.hostId !== data.hostId) {
+        throw Object.assign(new Error('Forbidden'), { statusCode: 403 });
+      }
 
-    const expectedRooms = calculateRoomsRequired(guests, room.capacity);
-    if (roomsRequired !== expectedRooms) {
-      throw Object.assign(
-        new Error(`${expectedRooms} room(s) required for ${guests} guest(s)`),
-        { statusCode: 400 }
-      );
-    }
+      const roomsRequired = data.roomsRequired
+        ? Number(data.roomsRequired)
+        : calculateRoomsRequired(guests, room.capacity);
 
-    await assertRoomsAvailable(roomId, roomsRequired, checkIn, checkOut, tx);
+      const expectedRooms = calculateRoomsRequired(guests, room.capacity);
+      if (roomsRequired !== expectedRooms) {
+        throw Object.assign(
+          new Error(`${expectedRooms} room(s) required for ${guests} guest(s)`),
+          { statusCode: 400 }
+        );
+      }
 
-    const totalAmount = roomsRequired * room.nightlyPrice * nights;
-    const platformFee = Math.round(totalAmount * 0.1);
-    const hostEarnings = totalAmount - platformFee;
+      await assertRoomsAvailable(roomId, roomsRequired, checkIn, checkOut, tx);
 
-    const booking = await tx.booking.create({
-      data: {
-        propertyId: room.propertyId,
-        roomId: room.id,
-        hostId: room.property.hostId,
-        ...(data.userId ? { userId: data.userId } : {}),
-        guestName: data.guestName,
-        guestEmail: data.guestEmail,
-        guestPhone: data.guestPhone,
-        guestCount: guests,
-        guests,
-        rooms: roomsRequired,
-        source,
-        checkIn,
-        checkOut,
-        nights,
-        pricePerNight: room.nightlyPrice,
-        totalAmount,
-        platformFee,
-        hostEarnings,
-        paymentMethod: normalizePaymentMethod(data.paymentMethod),
-        notes: data.notes,
-      },
-      include: { room: true, property: { select: { name: true, city: true, state: true } } },
-    });
+      const totalAmount = roomsRequired * room.nightlyPrice * nights;
+      const platformFee = Math.round(totalAmount * 0.1);
+      const hostEarnings = totalAmount - platformFee;
 
-    await tx.notification.create({
-      data: {
-        hostId: room.property.hostId,
-        type: 'BOOKING',
-        title: source === 'WALKIN' ? 'New Walk-in Booking!' : 'New Booking Received!',
-        content: `${data.guestName} booked ${roomsRequired} room(s) for ${nights} night(s). Check-in: ${data.checkIn}`,
-        actionUrl: `/host-portal?section=bookings`,
-        actionLabel: 'View Booking',
-      },
-    });
+      const booking = await tx.booking.create({
+        data: {
+          propertyId: room.propertyId,
+          roomId: room.id,
+          hostId: room.property.hostId,
+          ...(data.userId ? { userId: data.userId } : {}),
+          guestName: data.guestName,
+          guestEmail: data.guestEmail,
+          guestPhone: data.guestPhone,
+          guestCount: guests,
+          guests,
+          rooms: roomsRequired,
+          source,
+          checkIn,
+          checkOut,
+          nights,
+          pricePerNight: room.nightlyPrice,
+          totalAmount,
+          platformFee,
+          hostEarnings,
+          paymentMethod: normalizePaymentMethod(data.paymentMethod),
+          notes: data.notes,
+        },
+        include: { room: true, property: { select: { name: true, city: true, state: true } } },
+      });
 
-    return {
-      ...booking,
-      roomsRequired,
-      totalPrice: totalAmount,
-      serviceFee: platformFee,
-    };
+      await tx.notification.create({
+        data: {
+          hostId: room.property.hostId,
+          type: 'BOOKING',
+          title: source === 'WALKIN' ? 'New Walk-in Booking!' : 'New Booking Received!',
+          content: `${data.guestName} booked ${roomsRequired} room(s) for ${nights} night(s). Check-in: ${data.checkIn}`,
+          actionUrl: `/host-portal?section=bookings`,
+          actionLabel: 'View Booking',
+        },
+      });
+
+      return {
+        ...booking,
+        roomsRequired,
+        totalPrice: totalAmount,
+        serviceFee: platformFee,
+      };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   });
 };
+
+const createBookingWithRetry = async <T>(operation: () => Promise<T>) => {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (isSerializationConflict(error) && attempt < maxAttempts) continue;
+      throw error;
+    }
+  }
+  throw Object.assign(new Error('Unable to create booking safely'), { statusCode: 409 });
+};
+
+const isSerializationConflict = (error: unknown) =>
+  error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
 
 const getDefaultRoomId = async (propertyId?: string) => {
   if (!propertyId) return undefined;
