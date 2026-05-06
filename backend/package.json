@@ -50,5 +50,12 @@
   },
   "prisma": {
   "seed": "ts-node prisma/seed.ts"
+},
+  {
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev src/index.ts"
+  }
 }
 }
