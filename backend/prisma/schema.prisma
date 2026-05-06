@@ -59,6 +59,11 @@ enum PaymentMethod {
   CASH
 }
 
+enum BookingSource {
+  ONLINE
+  WALKIN
+}
+
 enum PayoutStatus {
   PENDING
   PROCESSING
@@ -260,8 +265,9 @@ model RoomType {
   property       Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   name           String
   totalRooms     Int      @default(1)
-  availableRooms Int      @default(1)
+  totalCount     Int      @default(0)
   pricePerNight  Float
+  price          Float    @default(0)
   capacity       Int      @default(2)
   bedType        String
   size           String?
@@ -270,6 +276,8 @@ model RoomType {
   description    String?
   status         String   @default("available")
   createdAt      DateTime @default(now())
+
+  bookings Booking[]
 
   @@map("room_types")
 }
@@ -295,6 +303,8 @@ model Booking {
   id            String        @id @default(uuid())
   propertyId    String
   property      Property      @relation(fields: [propertyId], references: [id])
+  roomId        String?
+  room          RoomType?      @relation(fields: [roomId], references: [id])
   hostId        String
   host          Host          @relation(fields: [hostId], references: [id])
   userId        String?
@@ -303,6 +313,9 @@ model Booking {
   guestEmail    String
   guestPhone    String
   guestCount    Int
+  guests        Int           @default(1)
+  rooms         Int           @default(1)
+  source        BookingSource @default(ONLINE)
   checkIn       DateTime
   checkOut      DateTime
   nights        Int

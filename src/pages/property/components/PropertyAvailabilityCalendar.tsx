@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/apiClient';
 
 interface Props {
   checkIn?: string;
@@ -6,22 +7,21 @@ interface Props {
   onCheckInChange?: (d: string) => void;
   onCheckOutChange?: (d: string) => void;
   propertyId?: string;
+  roomId?: string | null;
 }
 
-const BLOCKED_OFFSETS = [3, 4, 9, 17, 18, 25, 26];
-
-export default function PropertyAvailabilityCalendar({ checkIn = '', checkOut = '', onCheckInChange, onCheckOutChange }: Props) {
+export default function PropertyAvailabilityCalendar({ checkIn = '', checkOut = '', onCheckInChange, onCheckOutChange, roomId }: Props) {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selecting, setSelecting] = useState<'in' | 'out' | null>(null);
+  const [availability, setAvailability] = useState<Record<string, number>>({});
   const setCheckIn = onCheckInChange ?? (() => undefined);
   const setCheckOut = onCheckOutChange ?? (() => undefined);
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
 
-  const isBlocked = (day: number) => BLOCKED_OFFSETS.includes(day);
   const isPast = (day: number) => new Date(viewYear, viewMonth, day) < today;
 
   const isoDate = (day: number) => {
@@ -29,6 +29,33 @@ export default function PropertyAvailabilityCalendar({ checkIn = '', checkOut = 
     const d = String(day).padStart(2, '0');
     return `${viewYear}-${m}-${d}`;
   };
+
+  useEffect(() => {
+    if (!roomId) {
+      setAvailability({});
+      return;
+    }
+
+    const startDate = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-01`;
+    const endDate = new Date(viewYear, viewMonth + 1, 1).toISOString().slice(0, 10);
+    let cancelled = false;
+
+    apiFetch<{ date: string; available: number }[]>(
+      `/inventory/calendar?roomId=${encodeURIComponent(roomId)}&startDate=${startDate}&endDate=${endDate}`
+    )
+      .then((days) => {
+        if (!cancelled) setAvailability(Object.fromEntries(days.map((day) => [day.date, day.available])));
+      })
+      .catch(() => {
+        if (!cancelled) setAvailability({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId, viewYear, viewMonth]);
+
+  const isBlocked = (day: number) => roomId ? availability[isoDate(day)] === 0 : false;
 
   const isCheckIn = (day: number) => isoDate(day) === checkIn;
   const isCheckOut = (day: number) => isoDate(day) === checkOut;

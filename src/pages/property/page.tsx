@@ -10,6 +10,7 @@ import PropertyAvailabilityCalendar from './components/PropertyAvailabilityCalen
 import PropertyPolicies from './components/PropertyPolicies';
 import DayPackageSection from './components/DayPackageSection';
 import DayPackageEnquiryModal from './components/DayPackageEnquiryModal';
+import { apiFetch } from '@/lib/apiClient';
 
 export default function PropertyPage() {
   const { id } = useParams<{ id: string }>();
@@ -82,23 +83,52 @@ export default function PropertyPage() {
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [expandedDesc, setExpandedDesc] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [availableRooms, setAvailableRooms] = useState<number | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
   const toggleAddOn = (addOnId: string) =>
     setSelectedAddOns((prev) => prev.includes(addOnId) ? prev.filter((x) => x !== addOnId) : [...prev, addOnId]);
 
   const selectedRoom = roomTypes.find((r) => r.id === selectedRoomId) ?? null;
   const effectivePrice = selectedRoom ? selectedRoom.pricePerNight : pricePerNight;
+  const roomCapacity = selectedRoom?.capacity ?? maxGuests;
+  const roomsRequired = Math.max(1, Math.ceil(guests / Math.max(1, roomCapacity)));
 
   const handleRoomSelect = (roomId: string) => {
     setSelectedRoomId((prev) => (prev === roomId ? null : roomId));
-    if (selectedRoom?.capacity) setGuests(Math.min(guests, selectedRoom.capacity));
   };
 
   const addOnTotal = addOns.filter((a) => selectedAddOns.includes(a.id)).reduce((s, a) => s + a.price, 0);
   const nights = checkIn && checkOut ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000)) : 2;
-  const subtotal = effectivePrice * nights;
+  const subtotal = effectivePrice * roomsRequired * nights;
   const serviceFee = Math.round(subtotal * 0.1);
   const total = subtotal + serviceFee + addOnTotal;
+
+  useEffect(() => {
+    if (!selectedRoomId || !checkIn || !checkOut || new Date(checkOut) <= new Date(checkIn)) {
+      setAvailableRooms(null);
+      return;
+    }
+
+    let cancelled = false;
+    setAvailabilityLoading(true);
+    apiFetch<{ date: string; available: number }[]>(
+      `/inventory/calendar?roomId=${encodeURIComponent(selectedRoomId)}&startDate=${encodeURIComponent(checkIn)}&endDate=${encodeURIComponent(checkOut)}`
+    )
+      .then((days) => {
+        if (!cancelled) setAvailableRooms(days.length ? Math.min(...days.map((day) => day.available)) : null);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableRooms(null);
+      })
+      .finally(() => {
+        if (!cancelled) setAvailabilityLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRoomId, checkIn, checkOut]);
 
   const amenityIcons: Record<string, string> = {
     'Pool': 'ri-water-percent-line', 'WiFi': 'ri-wifi-line', 'AC': 'ri-temp-cold-line',
@@ -407,7 +437,7 @@ export default function PropertyPage() {
                       </div>
                     )}
                     <div className="flex justify-between text-sm text-stone-700">
-                      <span>&#x20B9;{effectivePrice.toLocaleString('en-IN')} &times; {nights} night{nights > 1 ? 's' : ''}</span>
+                      <span>&#x20B9;{effectivePrice.toLocaleString('en-IN')} &times; {roomsRequired} room{roomsRequired > 1 ? 's' : ''} &times; {nights} night{nights > 1 ? 's' : ''}</span>
                       <span>&#x20B9;{subtotal.toLocaleString('en-IN')}</span>
                     </div>
                     {addOnTotal > 0 && (
@@ -423,7 +453,7 @@ export default function PropertyPage() {
                 <PropertyPolicies propertyType={propertyType} housePolicies={housePolicies} />
 
                 {/* Availability Calendar */}
-                <PropertyAvailabilityCalendar propertyId={cmsProperty.id} />
+                <PropertyAvailabilityCalendar propertyId={cmsProperty.id} roomId={selectedRoomId} checkIn={checkIn} checkOut={checkOut} onCheckInChange={setCheckIn} onCheckOutChange={setCheckOut} />
 
                 {/* Reviews */}
                 <div className="border-t border-stone-100 pt-8">
@@ -552,13 +582,28 @@ export default function PropertyPage() {
                       <i className="ri-subtract-line text-sm" />
                     </button>
                     <span className="text-stone-900 font-semibold text-sm flex-1 text-center">{guests} {guests === 1 ? 'Guest' : 'Guests'}</span>
-                    <button onClick={() => setGuests((g) => Math.min(selectedRoom?.capacity ?? maxGuests, g + 1))} className="w-8 h-8 flex items-center justify-center border border-stone-300 rounded-full cursor-pointer hover:bg-stone-50">
+                    <button onClick={() => setGuests((g) => Math.min(maxGuests, g + 1))} className="w-8 h-8 flex items-center justify-center border border-stone-300 rounded-full cursor-pointer hover:bg-stone-50">
                       <i className="ri-add-line text-sm" />
                     </button>
                   </div>
+                  <p className="text-xs text-stone-500 mt-2">{roomsRequired} room{roomsRequired > 1 ? 's' : ''} required for {guests} guest{guests > 1 ? 's' : ''}</p>
                 </div>
+                {selectedRoom && (
+                  <div className={`px-3 py-2.5 rounded-xl text-xs flex items-center gap-2 ${
+                    availableRooms !== null && roomsRequired > availableRooms
+                      ? 'bg-red-50 border border-red-200 text-red-600'
+                      : 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+                  }`}>
+                    <i className={availabilityLoading ? 'ri-loader-4-line animate-spin' : 'ri-hotel-bed-line'} />
+                    {availabilityLoading
+                      ? 'Checking room inventory'
+                      : availableRooms === null
+                      ? 'Select dates to check room inventory'
+                      : `Only ${availableRooms} room${availableRooms === 1 ? '' : 's'} left`}
+                  </div>
+                )}
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-stone-700"><span>&#x20B9;{effectivePrice.toLocaleString('en-IN')} &times; {nights} nights</span><span>&#x20B9;{subtotal.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between text-stone-700"><span>&#x20B9;{effectivePrice.toLocaleString('en-IN')} &times; {roomsRequired} room{roomsRequired > 1 ? 's' : ''} &times; {nights} nights</span><span>&#x20B9;{subtotal.toLocaleString('en-IN')}</span></div>
                   {addOnTotal > 0 && <div className="flex justify-between text-stone-700"><span>Add-ons</span><span>&#x20B9;{addOnTotal.toLocaleString('en-IN')}</span></div>}
                   <div className="flex justify-between text-stone-700"><span>Service fee</span><span>&#x20B9;{serviceFee.toLocaleString('en-IN')}</span></div>
                   <div className="border-t border-stone-200 pt-2 flex justify-between font-bold text-stone-900"><span>Total</span><span>&#x20B9;{total.toLocaleString('en-IN')}</span></div>
@@ -566,13 +611,16 @@ export default function PropertyPage() {
                 {(() => {
                   const datesValid = !!checkIn && !!checkOut && new Date(checkOut) > new Date(checkIn);
                   const roomRequired = roomTypes.length > 0 && !selectedRoomId;
-                  const canReserve = datesValid && !roomRequired;
+                  const inventoryOk = availableRooms === null || roomsRequired <= availableRooms;
+                  const canReserve = datesValid && !roomRequired && inventoryOk && !availabilityLoading;
                   const missingMsg = !checkIn || !checkOut
                     ? 'Pick check-in and check-out dates'
                     : !datesValid
                     ? 'Check-out must be after check-in'
                     : roomRequired
                     ? 'Select a room type below'
+                    : !inventoryOk
+                    ? `Only ${availableRooms} room${availableRooms === 1 ? '' : 's'} left for these dates`
                     : '';
                   return (
                     <>

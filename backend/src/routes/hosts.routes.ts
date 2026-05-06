@@ -24,6 +24,7 @@ router.delete('/properties/:propertyId', ctrl.deleteProperty);
 
 // Bookings
 router.get('/bookings', ctrl.listBookings);
+router.post('/bookings', ctrl.createWalkInBooking);
 router.patch('/bookings/:bookingId/status', ctrl.updateBookingStatus);
 
 // Reviews

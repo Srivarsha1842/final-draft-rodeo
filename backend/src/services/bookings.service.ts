@@ -1,93 +1,175 @@
 import prisma from '../config/database';
-import { BookingStatus } from '@prisma/client';
+import { BookingSource, BookingStatus, PaymentMethod, Prisma } from '@prisma/client';
+import {
+  assertRoomsAvailable,
+  calculateRoomsRequired,
+  getNights,
+  getRoomForInventory,
+  parseStayDate,
+} from './inventory.service';
 
 export const createBooking = async (data: {
-  propertyId: string;
+  propertyId?: string;
+  roomId?: string;
   guestName: string;
   guestEmail: string;
   guestPhone: string;
-  guestCount: number;
+  guestCount?: number;
+  guests?: number;
+  roomsRequired?: number;
   checkIn: string;
   checkOut: string;
+  source?: BookingSource | string;
   paymentMethod?: string;
   notes?: string;
   userId?: string;
+  hostId?: string;
 }) => {
-  const property = await prisma.property.findUnique({
-    where: { id: data.propertyId },
-    select: { id: true, hostId: true, pricePerNight: true, status: true },
+  const checkIn = parseStayDate(data.checkIn, 'checkIn');
+  const checkOut = parseStayDate(data.checkOut, 'checkOut');
+  const nights = getNights(checkIn, checkOut);
+  const guests = Number(data.guests ?? data.guestCount ?? 1);
+
+  const roomId = data.roomId || (await getDefaultRoomId(data.propertyId));
+  if (!roomId) {
+    throw Object.assign(new Error('roomId is required'), { statusCode: 400 });
+  }
+
+  const source = normalizeSource(data.source);
+  if (source === 'WALKIN' && !data.hostId) {
+    throw Object.assign(new Error('Walk-in bookings require host authentication'), { statusCode: 403 });
+  }
+
+  return createBookingWithRetry(async () => {
+    return prisma.$transaction(async (tx) => {
+      const room = await getRoomForInventory(roomId, tx);
+      if (data.hostId && room.property.hostId !== data.hostId) {
+        throw Object.assign(new Error('Forbidden'), { statusCode: 403 });
+      }
+
+      const roomsRequired = data.roomsRequired
+        ? Number(data.roomsRequired)
+        : calculateRoomsRequired(guests, room.capacity);
+
+      const expectedRooms = calculateRoomsRequired(guests, room.capacity);
+      if (roomsRequired !== expectedRooms) {
+        throw Object.assign(
+          new Error(`${expectedRooms} room(s) required for ${guests} guest(s)`),
+          { statusCode: 400 }
+        );
+      }
+
+      await assertRoomsAvailable(roomId, roomsRequired, checkIn, checkOut, tx);
+
+      const totalAmount = roomsRequired * room.nightlyPrice * nights;
+      const platformFee = Math.round(totalAmount * 0.1);
+      const hostEarnings = totalAmount - platformFee;
+
+      const booking = await tx.booking.create({
+        data: {
+          propertyId: room.propertyId,
+          roomId: room.id,
+          hostId: room.property.hostId,
+          ...(data.userId ? { userId: data.userId } : {}),
+          guestName: data.guestName,
+          guestEmail: data.guestEmail,
+          guestPhone: data.guestPhone,
+          guestCount: guests,
+          guests,
+          rooms: roomsRequired,
+          source,
+          checkIn,
+          checkOut,
+          nights,
+          pricePerNight: room.nightlyPrice,
+          totalAmount,
+          platformFee,
+          hostEarnings,
+          paymentMethod: normalizePaymentMethod(data.paymentMethod),
+          notes: data.notes,
+        },
+        include: { room: true, property: { select: { name: true, city: true, state: true } } },
+      });
+
+      await tx.notification.create({
+        data: {
+          hostId: room.property.hostId,
+          type: 'BOOKING',
+          title: source === 'WALKIN' ? 'New Walk-in Booking!' : 'New Booking Received!',
+          content: `${data.guestName} booked ${roomsRequired} room(s) for ${nights} night(s). Check-in: ${data.checkIn}`,
+          actionUrl: `/host-portal?section=bookings`,
+          actionLabel: 'View Booking',
+        },
+      });
+
+      return {
+        ...booking,
+        roomsRequired,
+        totalPrice: totalAmount,
+        serviceFee: platformFee,
+      };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   });
-  if (!property || property.status !== 'ACTIVE')
-    throw Object.assign(new Error('Property not available'), { statusCode: 404 });
+};
 
-  const checkIn = new Date(data.checkIn);
-  const checkOut = new Date(data.checkOut);
-  const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-  if (nights < 1) throw Object.assign(new Error('Invalid dates'), { statusCode: 400 });
+const createBookingWithRetry = async <T>(operation: () => Promise<T>) => {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (isSerializationConflict(error) && attempt < maxAttempts) continue;
+      throw error;
+    }
+  }
+  throw Object.assign(new Error('Unable to create booking safely'), { statusCode: 409 });
+};
 
-  const conflict = await prisma.booking.findFirst({
-    where: {
-      propertyId: data.propertyId,
-      status: { in: ['CONFIRMED', 'PENDING'] },
-      checkIn: { lt: checkOut },
-      checkOut: { gt: checkIn },
-    },
-  });
-  if (conflict) throw Object.assign(new Error('Property not available for selected dates'), { statusCode: 409 });
+const isSerializationConflict = (error: unknown) =>
+  error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
 
-  const totalAmount = property.pricePerNight * nights;
-  const platformFee = totalAmount * 0.1;
-  const hostEarnings = totalAmount - platformFee;
+const getDefaultRoomId = async (propertyId?: string) => {
+  if (!propertyId) return undefined;
 
-  const booking = await prisma.booking.create({
-    data: {
-      propertyId: data.propertyId,
-      hostId: property.hostId,
-      ...(data.userId ? { userId: data.userId } : {}),
-      guestName: data.guestName,
-      guestEmail: data.guestEmail,
-      guestPhone: data.guestPhone,
-      guestCount: data.guestCount,
-      checkIn,
-      checkOut,
-      nights,
-      pricePerNight: property.pricePerNight,
-      totalAmount,
-      platformFee,
-      hostEarnings,
-      paymentMethod: (data.paymentMethod?.toUpperCase() as 'CARD') || 'CARD',
-      notes: data.notes,
-    },
+  const room = await prisma.roomType.findFirst({
+    where: { propertyId, status: 'available' },
+    orderBy: { pricePerNight: 'asc' },
+    select: { id: true },
   });
 
-  // Create notification for host
-  await prisma.notification.create({
-    data: {
-      hostId: property.hostId,
-      type: 'BOOKING',
-      title: 'New Booking Received!',
-      content: `${data.guestName} booked your property for ${nights} night(s). Check-in: ${data.checkIn}`,
-      actionUrl: `/host-portal?section=bookings`,
-      actionLabel: 'View Booking',
-    },
-  });
+  return room?.id;
+};
 
-  return booking;
+const normalizeSource = (source?: BookingSource | string): BookingSource => {
+  const normalized = String(source || 'ONLINE').toUpperCase();
+  if (normalized !== 'ONLINE' && normalized !== 'WALKIN') {
+    throw Object.assign(new Error('source must be ONLINE or WALKIN'), { statusCode: 400 });
+  }
+  return normalized as BookingSource;
+};
+
+const normalizePaymentMethod = (paymentMethod?: string): PaymentMethod => {
+  const normalized = String(paymentMethod || 'CARD').toUpperCase();
+  if (!Object.values(PaymentMethod).includes(normalized as PaymentMethod)) {
+    throw Object.assign(new Error('Invalid payment method'), { statusCode: 400 });
+  }
+  return normalized as PaymentMethod;
 };
 
 export const getBookingById = async (id: string, requesterId?: string, role?: string) => {
   const booking = await prisma.booking.findUnique({
     where: { id },
     include: {
+      room: true,
       property: { select: { name: true, images: true, city: true, state: true } },
       host: { select: { name: true, email: true } },
     },
   });
   if (!booking) throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
 
-  // Guests can only see their own bookings
-  if (role === 'user' && booking.userId !== requesterId)
+  if (role === 'user' && booking.userId !== requesterId) {
     throw Object.assign(new Error('Forbidden'), { statusCode: 403 });
+  }
 
   return booking;
 };
@@ -117,7 +199,10 @@ export const getHostBookings = async (
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
-      include: { property: { select: { name: true, images: true } } },
+      include: {
+        room: true,
+        property: { select: { name: true, images: true } },
+      },
     }),
   ]);
   return { bookings, total, page, limit };

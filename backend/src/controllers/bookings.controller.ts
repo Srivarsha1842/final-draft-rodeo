@@ -4,13 +4,37 @@ import { sendSuccess, sendError } from '../utils/response.util';
 
 export const create = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { propertyId, guestName, guestEmail, guestPhone, guestCount, checkIn, checkOut, paymentMethod, notes } = req.body;
-    if (!propertyId || !guestName || !guestEmail || !guestPhone || !checkIn || !checkOut) {
+    const {
+      propertyId,
+      roomId,
+      guestName,
+      guestEmail,
+      guestPhone,
+      guestCount,
+      guests,
+      roomsRequired,
+      checkIn,
+      checkOut,
+      paymentMethod,
+      notes,
+    } = req.body;
+    if ((!roomId && !propertyId) || !guestName || !guestEmail || !guestPhone || !checkIn || !checkOut) {
       return sendError(res, 'Missing required booking fields', 400);
     }
     const booking = await bookingsService.createBooking({
-      propertyId, guestName, guestEmail, guestPhone,
-      guestCount: parseInt(guestCount) || 1, checkIn, checkOut, paymentMethod, notes,
+      propertyId,
+      roomId,
+      guestName,
+      guestEmail,
+      guestPhone,
+      guestCount: guestCount ? parseInt(guestCount) : undefined,
+      guests: guests ? parseInt(guests) : undefined,
+      roomsRequired: roomsRequired ? parseInt(roomsRequired) : undefined,
+      checkIn,
+      checkOut,
+      source: 'ONLINE',
+      paymentMethod,
+      notes,
       userId: req.user?.id,
     });
     sendSuccess(res, booking, 201, 'Booking created');
